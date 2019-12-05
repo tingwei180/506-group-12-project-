@@ -1,0 +1,59 @@
+## Group Project Draft
+## Author: Ting Wei Lin, tingwei@umich.edu
+## Updated: Dec. 4 2019
+
+# libraries: -------------------------------------------------------------------
+library(Hmisc)
+library(data.table)
+
+# data: ------------------------------------------------------------------------
+path = "/Users/Sabrina/Documents/2019UMICH/STATS506/group project/data/"
+
+sleep = as.data.table(sasxport.get(paste0(path, "SLQ_D.XPT")))
+sleep = sleep[, .(seqn, sld010h)]
+
+physical = as.data.table(sasxport.get(paste0(path, "PAQ_D.XPT")))
+physical = physical[, .(seqn, pad080, paq520)]
+
+physical_indv = as.data.table(sasxport.get(paste0(path, "PAQIAF_D.XPT")))
+physical_indv = physical_indv[, .(seqn, padtimes, paddurat)]
+
+demo = as.data.table(sasxport.get(paste0(path, "DEMO_D.XPT")))
+demo = demo[, .(seqn, riagendr, ridageyr, ridreth1, indfminc, ridexmon)]
+
+dietary1 = as.data.table(sasxport.get(paste0(path, "DR1TOT_D.XPT")))
+dietary1 = dietary1[, .(seqn, dr1tkcal, dr1tsugr, dr1tcaff, day = 1)]
+names(dietary1) = c("seqn", "drtkcal", "drtsugr", "drtcaff", "day")
+
+dietary2 = as.data.table(sasxport.get(paste0(path, "DR2TOT_D.XPT")))
+dietary2 = dietary2[, .(seqn, dr2tkcal, dr2tsugr, dr2tcaff, day = 2)]
+names(dietary2) = c("seqn", "drtkcal", "drtsugr", "drtcaff", "day")
+
+# 80: --------------------------------------------------------------------------
+
+data1 = merge(sleep, physical, all = TRUE)
+data1 = merge(data1, physical_indv, all = TRUE)
+data1 = merge(data1, demo, all = TRUE)
+data1 = merge(data1, dietary1, all = TRUE)
+
+data2 = merge(sleep, physical, all = TRUE)
+data2 = merge(data2, physical_indv, all = TRUE)
+data2 = merge(data2, demo, all = TRUE)
+data2 = merge(data2, dietary2, all = TRUE)
+
+data = rbind(data1, data2)
+
+
+data_naomit = data[complete.cases(data[])]
+avg_value = data_naomit[, lapply(.SD, mean), by = .(seqn, day), 
+                    .SDcols = c("sld010h", "pad080", "paq520", "padtimes",
+                        "paddurat", "ridageyr", "ridreth1", "indfminc",
+                        "ridexmon", "drtkcal",  "drtsugr",  "drtcaff")]
+
+
+model = lm(sld010h ~ ., data = avg_value[, -c("seqn", "day", "ridexmon"), with = FALSE])
+summary(model)
+
+plot(avg_value$sld010h, avg_value$paddurat, col="grey",xlab="sld010h",ylab="paddurat")
+fit1<-smooth.spline(avg_value$sld010h, avg_value$paddurat,df=12) 
+lines(fit1,col="red",lwd=2)
